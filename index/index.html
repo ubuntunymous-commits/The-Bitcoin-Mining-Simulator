@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Solo Mining Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+        }
+        .crypto-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .bitcoin-orange {
+            color: #f7931a;
+        }
+        .btn-bitcoin {
+            background-color: #f7931a;
+            transition: all 0.3s ease;
+        }
+        .btn-bitcoin:hover {
+            background-color: #e8830e;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(247, 147, 26, 0.3);
+        }
+        .log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .log-container::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Language Selector -->
+        <div class="flex justify-end mb-4">
+            <select id="langSelector" onchange="changeLanguage()" class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="zh">简体中文</option>
+                <option value="hi">हिन्दी</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+            </select>
+        </div>
+
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2" id="t-title">Solo Mining <span class="bitcoin-orange">Simulator</span></h1>
+            <p class="text-slate-400" id="t-subtitle">What is your chance of winning a 3.125 BTC block?</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Inputs Panel -->
+            <div class="md:col-span-1 space-y-6">
+                <div class="crypto-card p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-xl font-semibold mb-4 border-b border-slate-700 pb-2" id="t-config">Settings</h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-1" id="t-label-ths">Your Power (TH/s)</label>
+                            <input type="number" id="userThs" value="4.9" step="0.1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-1" id="t-label-years">Time (Years)</label>
+                            <input type="number" id="simYears" value="1" step="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+
+                        <div class="pt-2">
+                            <label class="block text-sm font-medium text-slate-400 mb-1 italic" id="t-label-network">Global Hashrate (EH/s)</label>
+                            <div class="relative">
+                                <input type="number" id="networkEhs" value="811.71" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-500 text-sm cursor-not-allowed" readonly>
+                                <span class="absolute right-2 top-2 text-[10px] text-green-500 animate-pulse" id="t-live">LIVE</span>
+                            </div>
+                        </div>
+
+                        <button onclick="runSimulation()" class="w-full btn-bitcoin text-white font-bold py-4 rounded-xl mt-4 flex items-center justify-center gap-2">
+                            <span id="t-btn">TRY YOUR LUCK!</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Panel -->
+                <div id="statsPanel" class="crypto-card p-6 rounded-2xl shadow-xl hidden">
+                    <h2 class="text-lg font-semibold mb-3" id="t-prob-header">Theoretical Probability</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 text-sm" id="t-prob-daily">Daily:</span>
+                            <span id="probDaily" class="font-mono text-sm">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400 text-sm" id="t-prob-period">In the period:</span>
+                            <span id="probTotal" class="font-mono text-sm">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="md:col-span-2 space-y-6">
+                <div id="resultCard" class="crypto-card p-8 rounded-2xl shadow-xl min-h-[300px] flex flex-col items-center justify-center text-center transition-all duration-500">
+                    <div id="idleState">
+                        <div class="text-6xl mb-4">⛏️</div>
+                        <h3 class="text-2xl font-bold" id="t-idle-title">Ready to simulate</h3>
+                        <p class="text-slate-400 mt-2" id="t-idle-desc">Enter your data and press the button to start the lottery.</p>
+                    </div>
+
+                    <div id="loadingState" class="hidden">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mb-4"></div>
+                        <p class="text-xl font-medium italic" id="t-loading-desc">Simulating every day of the calendar...</p>
+                        <p id="progressText" class="text-orange-500 font-mono mt-2">0%</p>
+                    </div>
+
+                    <div id="winState" class="hidden">
+                        <div class="text-7xl mb-4 animate-bounce">🎊</div>
+                        <h3 class="text-3xl font-bold text-green-400" id="t-win-title">YOU WON A BLOCK!</h3>
+                        <p class="text-slate-300 mt-4 text-lg" id="winDetail"></p>
+                        <div class="mt-6 p-4 bg-green-900/30 rounded-lg border border-green-500/50">
+                            <p class="text-green-200" id="t-win-reward">Reward: 3.125 BTC + Fees</p>
+                        </div>
+                    </div>
+
+                    <div id="lossState" class="hidden">
+                        <div class="text-7xl mb-4 opacity-50">💸</div>
+                        <h3 class="text-3xl font-bold text-red-400" id="t-loss-title">YOU WON NOTHING</h3>
+                        <p class="text-slate-300 mt-4 text-lg" id="t-loss-desc">You spent thousands on electricity and found no blocks.</p>
+                        <p class="text-slate-500 mt-2 italic text-sm" id="lossDetail"></p>
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="crypto-card p-4 rounded-2xl shadow-xl h-48 overflow-hidden flex flex-col">
+                    <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2" id="t-log-title">Event Log</h2>
+                    <div id="log" class="log-container overflow-y-auto flex-1 text-xs font-mono space-y-1 text-slate-400">
+                        <p id="t-log-init">> Waiting for simulation start...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="mt-12 text-center text-slate-500 text-sm">
+            <p id="t-footer-1">This simulator uses real stochastic probability based on current Bitcoin hashrate.</p>
+            <p class="mt-1 italic" id="t-footer-note">Note: 1 EH/s = 1,000,000 TH/s</p>
+        </footer>
+    </div>
+
+    <script>
+        const translations = {
+            en: {
+                title: "Solo Mining <span class='bitcoin-orange'>Simulator</span>",
+                subtitle: "What is your chance of winning a 3.125 BTC block?",
+                config: "Settings",
+                labelThs: "Your Power (TH/s)",
+                labelYears: "Time (Years)",
+                labelNetwork: "Global Hashrate (EH/s)",
+                btn: "TRY YOUR LUCK!",
+                probHeader: "Theoretical Probability",
+                probDaily: "Daily:",
+                probPeriod: "In the period:",
+                idleTitle: "Ready to simulate",
+                idleDesc: "Enter your data and press the button to start the lottery.",
+                loadingDesc: "Simulating every day of the calendar...",
+                winTitle: "YOU WON A BLOCK!",
+                winReward: "Reward: 3.125 BTC + Fees",
+                lossTitle: "YOU WON NOTHING",
+                lossDesc: "You spent thousands on electricity and found no blocks.",
+                logTitle: "Event Log",
+                logInit: "Waiting for simulation start...",
+                footer1: "This simulator uses real stochastic probability based on current Bitcoin hashrate.",
+                footerNote: "Note: 1 EH/s = 1,000,000 TH/s",
+                live: "LIVE",
+                winDetailBase: "Incredible! You found a block on day ",
+                lossDetailBase: "You played {0} times against a 1 in {1} daily probability.",
+                logStart: "Starting simulation for {0} years ({1} days)...",
+                logProb: "Daily probability: 1 in {0}",
+                logWin: "WIN! Day {0}",
+                logLoss: "Simulation ended: 0 blocks found.",
+                updateLog: "Global Hashrate updated: {0} EH/s"
+            },
+            es: {
+                title: "Simulador de <span class='bitcoin-orange'>Minería Solo</span>",
+                subtitle: "¿Qué probabilidad tienes de ganar un bloque de 3.125 BTC?",
+                config: "Configuración",
+                labelThs: "Tu Potencia (TH/s)",
+                labelYears: "Tiempo (Años)",
+                labelNetwork: "Red Global (EH/s)",
+                btn: "¡PROBAR SUERTE!",
+                probHeader: "Probabilidad Teórica",
+                probDaily: "Al día:",
+                probPeriod: "En el periodo:",
+                idleTitle: "Listo para simular",
+                idleDesc: "Introduce tus datos y pulsa el botón para empezar la lotería.",
+                loadingDesc: "Simulando cada día del calendario...",
+                winTitle: "¡HAS GANADO UN BLOQUE!",
+                winReward: "Recompensa: 3.125 BTC + Comisiones",
+                lossTitle: "NO HAS GANADO NADA",
+                lossDesc: "Has gastado miles de euros en luz y no has encontrado ningún bloque.",
+                logTitle: "Registro de eventos",
+                logInit: "Esperando inicio de simulación...",
+                footer1: "Este simulador usa una probabilidad estocástica real basada en el Hashrate actual de la red Bitcoin.",
+                footerNote: "Nota: 1 EH/s = 1,000,000 TH/s",
+                live: "VIVO",
+                winDetailBase: "¡Increíble! Has encontrado un bloque en el día ",
+                lossDetailBase: "Has jugado {0} veces contra una probabilidad de 1 entre {1} cada día.",
+                logStart: "Iniciando simulación por {0} años ({1} días)...",
+                logProb: "Probabilidad diaria: 1 entre {0}",
+                logWin: "¡GANASTE! Día {0}",
+                logLoss: "Simulación terminada: 0 bloques encontrados.",
+                updateLog: "Red Global actualizada: {0} EH/s"
+            },
+            zh: {
+                title: "<span class='bitcoin-orange'>单机挖矿</span> 模拟器",
+                subtitle: "赢得 3.125 BTC 区块的概率是多少？",
+                config: "配置",
+                labelThs: "您的算力 (TH/s)",
+                labelYears: "时间 (年)",
+                labelNetwork: "全球算力 (EH/s)",
+                btn: "试试运气！",
+                probHeader: "理论概率",
+                probDaily: "每日:",
+                probPeriod: "期间内:",
+                idleTitle: "准备模拟",
+                idleDesc: "输入数据并点击按钮开始抽奖。",
+                loadingDesc: "正在模拟日历中的每一天...",
+                winTitle: "你赢了一个区块！",
+                winReward: "奖励: 3.125 BTC + 手续费",
+                lossTitle: "一无所获",
+                lossDesc: "你花了数千电费，却没有发现任何区块。",
+                logTitle: "事件日志",
+                logInit: "等待模拟开始...",
+                footer1: "此模拟器基于当前比特币算力使用真实的随机概率。",
+                footerNote: "注意：1 EH/s = 1,000,000 TH/s",
+                live: "实时",
+                winDetailBase: "不可思议！你在第 {0} 天发现了一个区块。",
+                lossDetailBase: "你尝试了 {0} 次，每天的概率为 {1} 分之一。",
+                logStart: "开始模拟 {0} 年（{1} 天）...",
+                logProb: "每日概率：1 / {0}",
+                logWin: "赢了！第 {0} 天",
+                logLoss: "模拟结束：未发现区块。",
+                updateLog: "全球算力已更新：{0} EH/s"
+            },
+            hi: {
+                title: "<span class='bitcoin-orange'>सोलो माइनिंग</span> सिम्युलेटर",
+                subtitle: "3.125 BTC ब्लॉक जीतने की आपकी संभावना क्या है?",
+                config: "सेटिंग्स",
+                labelThs: "आपकी शक्ति (TH/s)",
+                labelYears: "समय (वर्ष)",
+                labelNetwork: "ग्लोबल हैशरेट (EH/s)",
+                btn: "किस्मत आजमाएं!",
+                probHeader: "सैद्धांतिक संभावना",
+                probDaily: "दैनिक:",
+                probPeriod: "अवधि में:",
+                idleTitle: "सिमुलेशन के लिए तैयार",
+                idleDesc: "डेटा दर्ज करें और लॉटरी शुरू करने के लिए बटन दबाएं।",
+                loadingDesc: "कैलेंडर के her दिन का अनुकरण...",
+                winTitle: "आपने एक ब्लॉक जीत लिया!",
+                winReward: "इनाम: 3.125 BTC + फीस",
+                lossTitle: "आपने कुछ नहीं जीता",
+                lossDesc: "आपने बिजली पर हजारों खर्च किए और कोई ब्लॉक नहीं मिला।",
+                logTitle: "इवेंट लॉग",
+                logInit: "सिमुलेशन शुरू होने की प्रतीक्षा कर रहा है...",
+                footer1: "यह सिम्युलेटर वर्तमान बिटकॉइन हैशरेट के आधार पर वास्तविक स्टोकेस्टिक संभावना का उपयोग करता है।",
+                footerNote: "नोट: 1 EH/s = 1,000,000 TH/s",
+                live: "लाइव",
+                winDetailBase: "अविश्वसनीय! आपको दिन {0} पर एक ब्लॉक मिला।",
+                lossDetailBase: "आपने {0} बार खेला, हर दिन की संभावना {1} में 1 थी।",
+                logStart: "{0} वर्षों ({1} दिनों) के लिए सिमुलेशन शुरू हो रहा है...",
+                logProb: "दैनिक संभावना: {0} में 1",
+                logWin: "जीत! दिन {0}",
+                logLoss: "सिमुलेशन समाप्त: 0 ब्लॉक मिले।",
+                updateLog: "ग्लोबल हैशरेट अपडेट किया गया: {0} EH/s"
+            },
+            fr: {
+                title: "Simulateur de <span class='bitcoin-orange'>Mining Solo</span>",
+                subtitle: "Quelle est votre chance de gagner un bloc de 3.125 BTC ?",
+                config: "Configuration",
+                labelThs: "Votre puissance (TH/s)",
+                labelYears: "Temps (Années)",
+                labelNetwork: "Hashrate Global (EH/s)",
+                btn: "TENTER SA CHANCE !",
+                probHeader: "Probabilité Théorique",
+                probDaily: "Par jour :",
+                probPeriod: "Sur la période :",
+                idleTitle: "Prêt à simuler",
+                idleDesc: "Entrez vos données et appuyez sur le bouton pour commencer.",
+                loadingDesc: "Simulation de chaque jour du calendrier...",
+                winTitle: "VOUS AVEZ GAGNÉ UN BLOC !",
+                winReward: "Récompense : 3.125 BTC + Frais",
+                lossTitle: "VOUS N'AVEZ RIEN GAGNÉ",
+                lossDesc: "Vous avez dépensé des milliers en électricité sans succès.",
+                logTitle: "Journal d'événements",
+                logInit: "En attente du début de la simulation...",
+                footer1: "Ce simulateur utilise une probabilité stochastique réelle basée sur le hashrate actuel.",
+                footerNote: "Note : 1 EH/s = 1,000,000 TH/s",
+                live: "DIRECT",
+                winDetailBase: "Incroyable ! Bloc trouvé au jour ",
+                lossDetailBase: "Tenté {0} fois avec une probabilité quotidienne de 1 sur {1}.",
+                logStart: "Début de simulation pour {0} ans ({1} jours)...",
+                logProb: "Probabilité quotidienne : 1 sur {0}",
+                logWin: "GAGNÉ ! Jour {0}",
+                logLoss: "Simulation terminée : 0 bloc trouvé.",
+                updateLog: "Hashrate global mis à jour : {0} EH/s"
+            },
+            de: {
+                title: "<span class='bitcoin-orange'>Solo Mining</span> Simulator",
+                subtitle: "Wie hoch ist die Chance auf einen 3.125 BTC Block?",
+                config: "Einstellungen",
+                labelThs: "Deine Leistung (TH/s)",
+                labelYears: "Zeit (Jahre)",
+                labelNetwork: "Globale Hashrate (EH/s)",
+                btn: "GLÜCK VERSUCHEN!",
+                probHeader: "Theoretische Wahrscheinlichkeit",
+                probDaily: "Täglich:",
+                probPeriod: "Im Zeitraum:",
+                idleTitle: "Bereit zur Simulation",
+                idleDesc: "Daten eingeben und Button drücken.",
+                loadingDesc: "Simuliere jeden Tag des Kalenders...",
+                winTitle: "BLOCK GEWONNEN!",
+                winReward: "Belohnung: 3.125 BTC + Gebühren",
+                lossTitle: "NICHTS GEWONNEN",
+                lossDesc: "Tausende für Strom ausgegeben und nichts gefunden.",
+                logTitle: "Ereignisprotokoll",
+                logInit: "Warten auf Start...",
+                footer1: "Dieser Simulator nutzt reale stochastische Wahrscheinlichkeit basierend auf der Hashrate.",
+                footerNote: "Hinweis: 1 EH/s = 1,000,000 TH/s",
+                live: "LIVE",
+                winDetailBase: "Unglaublich! Block gefunden an Tag ",
+                lossDetailBase: "{0} Versuche bei einer täglichen Wahrscheinlichkeit von 1 zu {1}.",
+                logStart: "Simulation für {0} Jahre ({1} Tage) gestartet...",
+                logProb: "Tägliche Wahrscheinlichkeit: 1 zu {0}",
+                logWin: "SIEG! Tag {0}",
+                logLoss: "Simulation beendet: 0 Blöcke gefunden.",
+                updateLog: "Globale Hashrate aktualisiert: {0} EH/s"
+            }
+        };
+
+        let currentLang = 'en'; // Default to English
+
+        // Detection function: tries browser language, but defaults to English
+        function detectLanguage() {
+            const browserLang = navigator.language.split('-')[0]; 
+            const supportedLangs = Object.keys(translations);
+            
+            // Set English as baseline
+            currentLang = 'en';
+
+            // Override only if browser language is supported and not English (since it's already set)
+            if (supportedLangs.includes(browserLang)) {
+                currentLang = browserLang;
+            }
+            
+            document.getElementById('langSelector').value = currentLang;
+            changeLanguage();
+        }
+
+        function changeLanguage() {
+            currentLang = document.getElementById('langSelector').value;
+            const t = translations[currentLang];
+            
+            document.getElementById('t-title').innerHTML = t.title;
+            document.getElementById('t-subtitle').innerText = t.subtitle;
+            document.getElementById('t-config').innerText = t.config;
+            document.getElementById('t-label-ths').innerText = t.labelThs;
+            document.getElementById('t-label-years').innerText = t.labelYears;
+            document.getElementById('t-label-network').innerText = t.labelNetwork;
+            document.getElementById('t-btn').innerText = t.btn;
+            document.getElementById('t-prob-header').innerText = t.probHeader;
+            document.getElementById('t-prob-daily').innerText = t.probDaily;
+            document.getElementById('t-prob-period').innerText = t.probPeriod;
+            document.getElementById('t-idle-title').innerText = t.idleTitle;
+            document.getElementById('t-idle-desc').innerText = t.idleDesc;
+            document.getElementById('t-loading-desc').innerText = t.loadingDesc;
+            document.getElementById('t-win-title').innerText = t.winTitle;
+            document.getElementById('t-win-reward').innerText = t.winReward;
+            document.getElementById('t-loss-title').innerText = t.lossTitle;
+            document.getElementById('t-loss-desc').innerText = t.lossDesc;
+            document.getElementById('t-log-title').innerText = t.logTitle;
+            document.getElementById('t-log-init').innerText = "> " + t.logInit;
+            document.getElementById('t-footer-1').innerText = t.footer1;
+            document.getElementById('t-footer-note').innerText = t.footerNote;
+            document.getElementById('t-live').innerText = t.live;
+        }
+
+        async function fetchLiveHashrate() {
+            const t = translations[currentLang];
+            try {
+                const response = await fetch('https://blockchain.info/q/hashrate');
+                if (response.ok) {
+                    const hashrateGhs = await response.text();
+                    const hashrateEhs = (parseFloat(hashrateGhs) / 1000000000).toFixed(2);
+                    document.getElementById('networkEhs').value = hashrateEhs;
+                    log(t.updateLog.replace("{0}", hashrateEhs), 'text-green-500');
+                }
+            } catch (e) {
+                console.log("Could not fetch real-time hashrate.");
+            }
+        }
+
+        function log(message, color = 'text-slate-400') {
+            const logDiv = document.getElementById('log');
+            const p = document.createElement('p');
+            p.className = color;
+            p.innerText = `> ${message}`;
+            logDiv.prepend(p);
+        }
+
+        async function runSimulation() {
+            const t = translations[currentLang];
+            const userThs = parseFloat(document.getElementById('userThs').value);
+            const simYears = parseInt(document.getElementById('simYears').value);
+            const networkEhs = parseFloat(document.getElementById('networkEhs').value);
+            
+            if (isNaN(userThs) || userThs <= 0 || isNaN(simYears) || simYears <= 0) return;
+
+            document.getElementById('idleState').classList.add('hidden');
+            document.getElementById('winState').classList.add('hidden');
+            document.getElementById('lossState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('statsPanel').classList.remove('hidden');
+            document.getElementById('log').innerHTML = "";
+
+            const networkThs = networkEhs * 1000000;
+            const blocksPerDay = 144;
+            const totalDays = simYears * 365;
+            const probPerBlock = userThs / networkThs;
+            const probPerDay = 1 - Math.pow((1 - probPerBlock), blocksPerDay);
+            const totalProb = 1 - Math.pow((1 - probPerDay), totalDays);
+
+            document.getElementById('probDaily').innerText = (probPerDay * 100).toFixed(8) + "%";
+            document.getElementById('probTotal').innerText = (totalProb * 100).toFixed(4) + "%";
+
+            log(t.logStart.replace("{0}", simYears).replace("{1}", totalDays));
+            log(t.logProb.replace("{0}", Math.round(1/probPerDay).toLocaleString()));
+
+            let won = false;
+            let winDay = 0;
+
+            for (let day = 1; day <= totalDays; day++) {
+                if (day % 100 === 0) {
+                    document.getElementById('progressText').innerText = Math.floor((day / totalDays) * 100) + "%";
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+
+                if (Math.random() < probPerDay) {
+                    won = true;
+                    winDay = day;
+                    break;
+                }
+            }
+
+            document.getElementById('loadingState').classList.add('hidden');
+            if (won) {
+                document.getElementById('winState').classList.remove('hidden');
+                document.getElementById('winDetail').innerText = t.winDetailBase + winDay.toLocaleString() + ".";
+                log(t.logWin.replace("{0}", winDay), 'text-green-400 font-bold');
+            } else {
+                document.getElementById('lossState').classList.remove('hidden');
+                document.getElementById('lossDetail').innerText = t.lossDetailBase
+                    .replace("{0}", totalDays.toLocaleString())
+                    .replace("{1}", Math.round(1/probPerDay).toLocaleString());
+                log(t.logLoss, 'text-red-400');
+            }
+        }
+
+        window.onload = () => {
+            detectLanguage(); 
+            fetchLiveHashrate();
+        };
+    </script>
+</body>
+</html>
